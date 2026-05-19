@@ -30,6 +30,7 @@ Para asegurar una sincronización robusta y evitar duplicidad de datos o redirec
     *   `refetchOnReconnect: false`: La revalidación tras recuperar la conexión debe ser controlada manualmente por el orquestador para evitar condiciones de carrera.
 3.  **Orquestador de Sincronización (`useSync`):** Es el único componente encargado de subir cambios locales pendientes de forma secuencial. Al finalizar una tanda de sincronización, es responsable de invalidar el caché de TanStack Query para refrescar la UI con datos confirmados del servidor.
 4.  **Mutaciones Silenciosas:** Las acciones del usuario (crear, editar, borrar) actualizan Dexie inmediatamente y lanzan una mutación que captura cualquier error de red sin interrumpir la experiencia del usuario.
+5.  **Health Check Polling (Recuperación Automática):** Para manejar estados de "Lie-Fi" (red conectada pero servidor inaccesible), el orquestador realiza pings periódicos a un endpoint de salud (`/api/health`) únicamente cuando existen tareas locales pendientes. Esto garantiza que la sincronización se reanude automáticamente en cuanto el servidor esté disponible.
 
 ## Reglas y Convenciones
 - **Explicación Mandatoria (Enfoque Tutorial):** Al ser este proyecto una capacitación, cada cambio, línea de código modificada o paso realizado por la IA debe ir acompañado de una explicación detallada del "por qué" se hace y cómo funciona. El objetivo principal es que el usuario aprenda.

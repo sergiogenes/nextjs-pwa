@@ -9,24 +9,16 @@ export function useSync() {
   const queryClient = useQueryClient();
   const userId = (session?.user as any)?.id;
 
-  // EXPLICACIÓN TUTORIAL:
-  // Envolvemos la lógica en useCallback para que pueda ser llamada
-  // manualmente desde otros componentes (como el botón de refresco).
   const syncTasks = useCallback(async () => {
     if (status !== 'authenticated' || !userId) return;
 
-    console.log('🔍 [Sync] Iniciando proceso de sincronización...')
-    
     const pendingTasks = await localDb.tasks
       .filter((task) => task.synced === false && task.userId === userId)
       .toArray()
 
-    if (pendingTasks.length === 0) {
-      console.log('✅ [Sync] No hay tareas pendientes de subir.');
-      return;
-    }
+    if (pendingTasks.length === 0) return;
 
-    console.log(`📊 [Sync] Tareas para subir: ${pendingTasks.length}`)
+    console.log('🔍 [Sync] Iniciando proceso de sincronización...')
     let hasChanges = false;
 
     for (const task of pendingTasks) {
@@ -48,12 +40,7 @@ export function useSync() {
           const result = await createTaskInDB(task.title, userId)
           if (result.success && result.task) {
             await localDb.tasks.delete(task.id!)
-            await localDb.tasks.add({ 
-              ...task, 
-              id: result.task.id, 
-              userId, 
-              synced: true 
-            })
+            await localDb.tasks.add({ ...task, id: result.task.id, userId, synced: true })
             hasChanges = true;
           }
         } else {
@@ -77,15 +64,57 @@ export function useSync() {
     }
   }, [status, userId, queryClient]);
 
+  /**
+   * EXPLICACIÓN TUTORIAL (Arquitectura Estándar PWA - Health Check Polling):
+   * Implementamos un intervalo que actúa como un "vigilante" inteligente.
+   * 
+   * 1. Solo se activa si el navegador dice que estamos online.
+   * 2. Solo hace la petición (ping) si detecta que hay tareas pendientes de subir.
+   * 3. Si el servidor responde (fetch exitoso), dispara la sincronización.
+   * 
+   * Esto resuelve el problema del servidor caído sin requerir refresco manual.
+   */
   useEffect(() => {
     if (status !== 'authenticated' || !userId) return;
 
-    // Ejecutamos la sincronización al inicio y cuando volvemos a estar online
+    // Función de chequeo periódico
+    const checkServerAndSync = async () => {
+      // Si el navegador reporta offline, no gastamos batería ni red
+      if (!navigator.onLine) return;
+
+      // Verificamos si realmente hay algo que sincronizar
+      const pendingCount = await localDb.tasks
+        .filter(t => t.synced === false && t.userId === userId)
+        .count();
+
+      if (pendingCount > 0) {
+        console.log(`📡 [HealthCheck] Detectadas ${pendingCount} tareas pendientes. Verificando servidor...`);
+        try {
+          const response = await fetch('/api/health');
+          if (response.ok) {
+            console.log('✅ [HealthCheck] Servidor disponible. Disparando sincronización automática...');
+            syncTasks();
+          }
+        } catch (error) {
+          // El servidor sigue caído, no hacemos nada hasta el próximo ciclo
+        }
+      }
+    };
+
+    // Configuramos el polling cada 15 segundos
+    const intervalId = setInterval(checkServerAndSync, 15000);
+
+    // También mantenemos el evento nativo por si se apaga/enciende el Wifi
     window.addEventListener('online', syncTasks);
+    
+    // Ejecución inicial
     syncTasks();
 
-    return () => window.removeEventListener('online', syncTasks)
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('online', syncTasks);
+    }
   }, [status, userId, syncTasks]);
 
-  return syncTasks; // Retornamos la función para uso manual
+  return syncTasks;
 }

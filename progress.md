@@ -44,24 +44,22 @@
         - Se configuró `SessionProvider` con `refetchOnWindowFocus: false` y `refetchWhenOffline: false` para evitar cierres de sesión accidentales sin red.
         - Se ajustó el `middleware.ts` para ser permisivo con la sesión en micro-cortes, evitando redirecciones forzadas al login.
 
-## [2026-05-19] Integración de TanStack Query
-- Instalación de dependencias: `@tanstack/react-query` y `@tanstack/react-query-devtools`.
-- Creación de `src/components/ReactQueryProvider.tsx` para centralizar la configuración del `QueryClient`.
-- Configuración global de reintentos (2) y revalidación en foco de ventana.
-- Integración del proveedor en el `RootLayout` para disponibilidad en toda la app.
-- **Implementación de `useQuery`:** Gestión centralizada de la carga de tareas desde MongoDB con sincronización reactiva hacia IndexedDB.
-- **Optimización SSR e Hidratación:**
-    - Refactorización de la Home a un Server Component para pre-cargar datos.
-    - Implementación de `HydrationBoundary` para inyectar datos del servidor en el caché del cliente.
-    - Centralización de `authOptions` para compatibilidad con `getServerSession`.
-    - Eliminación del estado de carga inicial en el cliente (Zero-Loading-State).
-- **Refactorización con `useMutation`:**
-    - Implementación de mutaciones para Crear, Actualizar y Borrar.
-    - Estrategia de **Actualización Optimista:** La UI responde instantáneamente en local (Dexie) mientras la mutación se procesa en segundo plano.
-    - Invalidación de caché automática tras mutaciones exitosas para asegurar la integridad de los datos.
-    - Eliminación de estados de carga manuales (`useState`) en favor de los estados nativos de TanStack Query (`isPending`, `isFetching`).
+## [2026-05-19] Consolidación de la Arquitectura PWA Estándar
+- **Integración de TanStack Query:**
+    - Configuración del `QueryClient` optimizado para modo "Offline-First" (retry: 0, refetchOnWindowFocus: false).
+    - Implementación de **SSR e Hidratación** para una carga inicial instantánea (Zero-Loading-State).
+    - Refactorización a una estructura híbrida de Server Components (`page.tsx`) y Client Components (`TasksView.tsx`).
+- **Estandarización de Arquitectura (GEMINI.md):**
+    - Se definió formalmente el patrón "Offline-First con Orquestador" para futuros proyectos.
+    - Establecimiento de Dexie como única fuente de verdad para la UI.
+- **Sincronización Autónoma y Resiliente:**
+    - Refactorización de `useSync` con protección contra ejecuciones concurrentes y sincronización secuencial.
+    - Implementación de **Health Check Polling** (`/api/health`) para recuperación automática tras caídas del servidorbackend (solución al problema del Lie-Fi).
+    - Eliminación de duplicidad de datos mediante el manejo coordinado de IDs temporales (Dexie) y reales (MongoDB) en mutaciones.
+- Creación del documento `ARCH_BLUEPRINT.md` detallando la arquitectura escalable (incluyendo consideraciones para integraciones sin DB intermedia, como CRMs tipo HubSpot).
+- Se analizó el comportamiento del Logout offline (redirección a `/~offline`) y se decidió mantenerlo por seguridad (imposibilidad de borrar cookies HttpOnly sin conexión).
 
 ## Pendiente:
-- Mejora de la UI para mostrar estados de sincronización más detallados (ej: indicador de "Sincronizado" vs "Pendiente" por cada tarea).
-- Optimización de Server Components para la carga inicial de datos.
+- Mejora estética de los indicadores de sincronización por cada tarea.
 - Pruebas de carga y estrés de la sincronización offline-online masiva.
+- Preparación de la documentación de despliegue final.
