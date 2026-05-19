@@ -22,5 +22,23 @@
 - Se configuró `next-pwa` y se implementó un registro manual del Service Worker (`src/components/ServiceWorkerRegistration.tsx`), logrando la funcionalidad offline total.
 - Se ajustaron configuraciones de red (`mongodb.ts`) para permitir un fallo rápido (fail-fast) sin internet.
 
-### Pendiente para el Lunes (Post-Mortem):
-- Analizar la causa real de los problemas con el Service Worker: ¿Fue realmente la versión de Next.js (Turbopack en v16) o un problema en la forma de registrar el Service Worker inicialmente?
+### [2026-05-18] Autenticación, Seguridad y Resiliencia Avanzada
+- Se realizó un análisis post-mortem del Service Worker, confirmando la incompatibilidad de `next-pwa` con Turbopack (v15+).
+- Se optimizó el `manifest.json` y `layout.tsx` con iconos correctos y propósitos `maskable`.
+- Se implementó la sincronización bidireccional completa (subida y descarga/limpieza de datos locales).
+- Se desarrolló el CRUD offline completo (creación, edición y eliminación) con estrategias de "Soft Delete" local.
+- **Fase de Autenticación (NextAuth.js):**
+    - Se configuró NextAuth con el proveedor de credenciales y sesiones JWT.
+    - Se implementó el hasheo de contraseñas usando `bcryptjs` para máxima seguridad.
+    - Se creó un sistema de registro de usuarios (`/auth/signup`) y una página de login personalizada (`/auth/signin`).
+    - Se vincularon todas las tareas a IDs de usuario únicos en MongoDB y Dexie.
+    - Se protegió la aplicación mediante un Middleware simplificado y compatible con PWA.
+- **Resiliencia PWA Avanzada:**
+    - Se implementó una página de "Offline Fallback" (`/~offline`) para evitar errores de conexión del navegador.
+    - Se configuraron estrategias de caché `StaleWhileRevalidate` para permitir que la Home cargue incluso con el servidor apagado.
+    - Se ajustó el Service Worker para manejar peticiones de datos RSC (`_rsc`) de Next.js.
+
+## Pendiente:
+- Instalación e integración de TanStack Query (React Query) para optimizar estados de carga y revalidación de datos de servidor.
+- Mejora de la UI para mostrar estados de sincronización más detallados.
+- Optimización de Server Components para la carga inicial de datos.

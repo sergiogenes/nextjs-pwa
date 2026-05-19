@@ -1,24 +1,40 @@
-'use server' // ¡OBLIGATORIO! Esto le dice a Next.js que todo aquí corre SOLO en el servidor
+'use server'
 
 import dbConnect from './mongodb'
 import Task from '../models/Task'
+import User from '../models/User'
 import mongoose from 'mongoose'
+import bcrypt from 'bcryptjs' // <--- NUEVO
+
+export async function registerUser(userData: any) {
+  try {
+    await dbConnect();
+    const { name, email, password } = userData;
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return { success: false, error: 'El email ya está registrado' };
+
+    // EXPLICACIÓN TUTORIAL:
+    // Nunca guardamos la contraseña tal cual. Generamos un "salt" (aleatoriedad)
+    // y creamos un hash. 10 es el número estándar de rondas de seguridad.
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await User.create({ name, email, password: hashedPassword }); // Guardamos el hash
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: 'Error interno del servidor' };
+  }
+}
 
 /**
- * Explicación Tutorial:
- * Esta función recibe el título de una tarea, se conecta a MongoDB,
- * la guarda y devuelve una versión serializada de la tarea.
+ * EXPLICACIÓN TUTORIAL:
+ * Ahora todas las funciones de base de datos requieren el 'userId'.
+ * Esto asegura que un usuario no pueda manipular tareas de otros.
  */
-export async function createTaskInDB(title: string) {
+
+export async function createTaskInDB(title: string, userId: string) {
   try {
-    // 1. Intentamos la conexión con los timeouts que ya pusimos
-    await dbConnect()
-
-    const newTask = await Task.create({
-      title,
-      completed: false,
-    })
-
+    await dbConnect();
+    const newTask = await Task.create({ title, userId, completed: false });
     return {
       success: true,
       task: {
@@ -28,73 +44,53 @@ export async function createTaskInDB(title: string) {
         createdAt: newTask.createdAt.getTime(),
       },
     }
-  } catch (error: unknown) {
-    // EXPLICACIÓN TUTORIAL:
-    // En TypeScript, los errores son de tipo 'unknown'. Para acceder a sus propiedades 
-    // de forma segura, los tratamos como un objeto que podría tener 'code' o 'name'.
-    const err = error as { code?: string; name?: string };
-
-    if (
-      err.code === 'ENOTFOUND' ||
-      err.code === 'ETIMEOUT' ||
-      err.name === 'MongoServerSelectionError'
-    ) {
-      console.warn('📡 [Server Action] Fallo de red con MongoDB. La tarea se sincronizará luego.')
-      return { success: false, error: 'Servidor desconectado temporalmente' }
-    }
-
-    // Si es otro tipo de error (ej: validación de datos), lo mostramos completo
-    console.error('❌ Error inesperado en MongoDB:', error)
-    return { success: false, error: 'Error interno del servidor' }
+  } catch (error) {
+    return { success: false, error: 'Error al crear tarea' }
   }
 }
 
-/**
- * Explicación Tutorial:
- * Esta acción recibe el ID de la tarea y su nuevo estado.
- * Se encarga de buscarla en MongoDB y actualizarla.
- */
-export async function toggleTaskInDB(id: string, completed: boolean) {
+export async function updateTaskInDB(id: string, updates: any, userId: string) {
   try {
-    await dbConnect()
+    await dbConnect();
+    // Filtramos por ID de tarea Y por ID de usuario por seguridad
+    const updatedTask = await Task.findOneAndUpdate(
+      { _id: id, userId }, 
+      { $set: updates },
+      { returnDocument: 'after', lean: true }
+    );
+    if (!updatedTask) return { success: false, error: 'Tarea no encontrada' };
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: 'Error al actualizar' };
+  }
+}
 
-    // 1. Verificamos si el ID es un ObjectId válido de MongoDB
-    // Si es un UUID (como "4ab95..."), MongoDB no lo encontrará y debemos avisar
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return { success: false, error: 'ID no válido para MongoDB' }
-    }
+export async function deleteTaskInDB(id: string, userId: string) {
+  try {
+    await dbConnect();
+    const result = await Task.findOneAndDelete({ _id: id, userId });
+    if (!result) return { success: false, error: 'No autorizado' };
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: 'Error al eliminar' };
+  }
+}
 
-    // 2. Usamos 'returnDocument: after' como sugiere el warning
-    const updatedTask = (await Task.findByIdAndUpdate(
-      id,
-      { completed },
-      { returnDocument: 'after', lean: true }, // 'lean' devuelve un objeto plano de JS
-    )) as { _id: mongoose.Types.ObjectId; title: string; completed: boolean } | null
-
-    if (!updatedTask) return { success: false, error: 'Tarea no encontrada' }
-
-    // 3. Devolvemos solo lo necesario en un objeto plano
+export async function fetchTasksFromDB(userId: string) {
+  try {
+    await dbConnect();
+    // IMPORTANTÍSIMO: Solo traemos las tareas del usuario logueado
+    const tasks = await Task.find({ userId }).sort({ createdAt: -1 }).lean();
     return {
       success: true,
-      task: {
-        id: updatedTask._id.toString(),
-        title: updatedTask.title,
-        completed: updatedTask.completed,
-      },
-    }
-  } catch (error: unknown) {
-    const err = error as { code?: string; name?: string };
-
-    if (
-      err.code === 'ENOTFOUND' ||
-      err.code === 'ETIMEOUT' ||
-      err.name === 'MongoServerSelectionError'
-    ) {
-      console.warn('📡 [Server Action] Fallo de red al actualizar en MongoDB.')
-      return { success: false, error: 'Servidor desconectado temporalmente' }
-    }
-
-    console.error('❌ Error al actualizar tarea en MongoDB:', error)
-    return { success: false, error: 'Error interno del servidor' }
+      tasks: tasks.map((t: any) => ({
+        id: t._id.toString(),
+        title: t.title,
+        completed: t.completed ?? false,
+        createdAt: t.createdAt instanceof Date ? t.createdAt.getTime() : Date.now(),
+      }))
+    };
+  } catch (error) {
+    return { success: false, error: 'Error al obtener tareas' };
   }
 }

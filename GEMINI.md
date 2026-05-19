@@ -3,10 +3,11 @@
 Este proyecto es un tutorial interactivo diseñado para enseñar el desarrollo de aplicaciones web progresivas (PWA) utilizando Next.js 14.
 
 ## Objetivos Educativos
-1.  **Arquitectura Next.js 14:** Uso profundo de App Router, Server Components y Server Actions.
-2.  **Autenticación en PWA:** Manejo de sesiones persistentes y seguras con NextAuth.js.
-3.  **Resiliencia de Red (Offline):** Implementación de Service Workers para caché de activos y IndexedDB para persistencia de datos local (escritura offline).
-4.  **Sincronización:** Lógica para sincronizar datos locales con MongoDB cuando se recupera la conexión.
+1.  **Arquitectura Next.js 14:** Uso profundo de App Router, Server Components y Server Actions. (En proceso)
+2.  **Autenticación en PWA:** Manejo de sesiones persistentes y seguras con NextAuth.js, incluyendo registro de usuarios y hasheo de contraseñas. (Completado)
+3.  **Resiliencia de Red (Offline):** Implementación de Service Workers para caché de activos y IndexedDB para persistencia de datos local. (Completado: Lógica Offline-First)
+4.  **Sincronización:** Lógica para sincronizar datos locales con MongoDB cuando se recupera la conexión. (Completado: Sincronización bidireccional)
+5.  **Gestión de Estado Avanzada:** Integración de TanStack Query para optimizar la comunicación con el servidor. (Pendiente)
 
 ## Stack Tecnológico
 - **Framework:** Next.js 14 (App Router).
