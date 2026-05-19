@@ -50,6 +50,11 @@
 - Configuración global de reintentos (2) y revalidación en foco de ventana.
 - Integración del proveedor en el `RootLayout` para disponibilidad en toda la app.
 - **Implementación de `useQuery`:** Gestión centralizada de la carga de tareas desde MongoDB con sincronización reactiva hacia IndexedDB.
+- **Optimización SSR e Hidratación:**
+    - Refactorización de la Home a un Server Component para pre-cargar datos.
+    - Implementación de `HydrationBoundary` para inyectar datos del servidor en el caché del cliente.
+    - Centralización de `authOptions` para compatibilidad con `getServerSession`.
+    - Eliminación del estado de carga inicial en el cliente (Zero-Loading-State).
 - **Refactorización con `useMutation`:**
     - Implementación de mutaciones para Crear, Actualizar y Borrar.
     - Estrategia de **Actualización Optimista:** La UI responde instantáneamente en local (Dexie) mientras la mutación se procesa en segundo plano.
