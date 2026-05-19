@@ -18,6 +18,19 @@ Este proyecto es un tutorial interactivo diseñado para enseñar el desarrollo d
 - **Persistencia Local:** IndexedDB (vía Dexie.js).
 - **PWA:** `next-pwa` o Service Worker manual con Workbox.
 
+## Arquitectura Offline-First Estándar (TanStack + Dexie)
+> **Nota de Estandarización:** Este proyecto sirve como la base arquitectónica y de configuración de referencia para todas las futuras aplicaciones web progresivas (PWA) de la organización. El objetivo es proporcionar una estructura resiliente, de alto rendimiento y con una sincronización impecable entre el estado local y el servidor.
+
+Para asegurar una sincronización robusta y evitar duplicidad de datos o redirecciones erróneas, el proyecto sigue estos principios:
+
+1.  **Fuente de Verdad Única (UI):** La interfaz de usuario (`UI`) siempre lee de la base de datos local (**Dexie.js**). Nunca espera una respuesta del servidor para actualizarse.
+2.  **Configuración de TanStack Query (Modo PWA):**
+    *   `retry: 0`: Las mutaciones deben fallar rápido si no hay red; la sincronización posterior es responsabilidad del orquestador.
+    *   `refetchOnWindowFocus: false`: Evita peticiones accidentales y errores de red al cambiar de pestaña en modo offline.
+    *   `refetchOnReconnect: false`: La revalidación tras recuperar la conexión debe ser controlada manualmente por el orquestador para evitar condiciones de carrera.
+3.  **Orquestador de Sincronización (`useSync`):** Es el único componente encargado de subir cambios locales pendientes de forma secuencial. Al finalizar una tanda de sincronización, es responsable de invalidar el caché de TanStack Query para refrescar la UI con datos confirmados del servidor.
+4.  **Mutaciones Silenciosas:** Las acciones del usuario (crear, editar, borrar) actualizan Dexie inmediatamente y lanzan una mutación que captura cualquier error de red sin interrumpir la experiencia del usuario.
+
 ## Reglas y Convenciones
 - **Explicación Mandatoria (Enfoque Tutorial):** Al ser este proyecto una capacitación, cada cambio, línea de código modificada o paso realizado por la IA debe ir acompañado de una explicación detallada del "por qué" se hace y cómo funciona. El objetivo principal es que el usuario aprenda.
 - **Ejecución Manual de Comandos:** Todos los comandos de consola (instalación de dependencias, scripts, etc.) deben ser proporcionados al usuario para que los ejecute manualmente. La IA NO debe usar herramientas de ejecución de shell. Cada comando sugerido debe incluir una explicación exacta de lo que realiza en el sistema.

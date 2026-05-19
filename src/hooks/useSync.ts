@@ -1,121 +1,91 @@
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { localDb } from '@/lib/db'
-import { createTaskInDB, updateTaskInDB, deleteTaskInDB, fetchTasksFromDB } from '@/lib/actions'
-import { useSession } from 'next-auth/react' // <--- NUEVO
+import { createTaskInDB, updateTaskInDB, deleteTaskInDB } from '@/lib/actions'
+import { useSession } from 'next-auth/react'
+import { useQueryClient } from '@tanstack/react-query'
 
 export function useSync() {
   const { data: session, status } = useSession();
+  const queryClient = useQueryClient();
   const userId = (session?.user as any)?.id;
 
-  useEffect(() => {
-    // Si no hay sesión o todavía está cargando, no hacemos nada
+  // EXPLICACIÓN TUTORIAL:
+  // Envolvemos la lógica en useCallback para que pueda ser llamada
+  // manualmente desde otros componentes (como el botón de refresco).
+  const syncTasks = useCallback(async () => {
     if (status !== 'authenticated' || !userId) return;
 
-    // Función para descargar datos de la nube a local (Rehidratación)
-    const downloadFromCloud = async () => {
-      console.log('📡 [Sync] Intentando rehidratar datos desde la nube...')
-      const result = await fetchTasksFromDB(userId); // <--- PASAMOS userId
-      
-      if (result.success && result.tasks) {
-        console.log(`📥 [Sync] Descargadas ${result.tasks.length} tareas de MongoDB.`);
-        
-        const cloudIds = result.tasks.map((t: any) => t.id);
+    console.log('🔍 [Sync] Iniciando proceso de sincronización...')
+    
+    const pendingTasks = await localDb.tasks
+      .filter((task) => task.synced === false && task.userId === userId)
+      .toArray()
 
-        // 1. Actualizar/Insertar lo que viene de la nube
-        for (const cloudTask of result.tasks) {
-          const localTask = await localDb.tasks.get(cloudTask.id);
+    if (pendingTasks.length === 0) {
+      console.log('✅ [Sync] No hay tareas pendientes de subir.');
+      return;
+    }
 
-          // Si tenemos cambios locales pendientes para esta tarea, no la tocamos
-          if (localTask && localTask.synced === false) {
-            console.log(`⚠️ [Sync] Saltando "${cloudTask.title}" por cambios locales.`);
-            continue;
-          }
+    console.log(`📊 [Sync] Tareas para subir: ${pendingTasks.length}`)
+    let hasChanges = false;
 
-          await localDb.tasks.put({
-            id: cloudTask.id,
-            userId, // Importante guardar el dueño
-            title: cloudTask.title,
-            completed: cloudTask.completed,
-            synced: true,
-            createdAt: cloudTask.createdAt
-          });
-        }
-
-        // 2. LIMPIEZA: Borrar en local lo que ya no existe en la nube para este usuario
-        const allLocalTasks = await localDb.tasks.filter(t => t.userId === userId && t.synced === true).toArray();
-        for (const localT of allLocalTasks) {
-          if (!cloudIds.includes(localT.id)) {
-            console.log(`🗑️ [Sync] Borrando tarea local "${localT.title}" porque ya no existe en Atlas.`);
-            await localDb.tasks.delete(localT.id!);
-          }
-        }
-
-        console.log('✅ [Sync] IndexedDB sincronizado perfectamente.');
-      }
-    };
-
-    const syncTasks = async () => {
-      console.log('🔍 Buscando tareas pendientes de subir...')
-      
-      const pendingTasks = await localDb.tasks.filter((task) => task.synced === false && task.userId === userId).toArray()
-
-      if (pendingTasks.length === 0) return;
-
-      console.log(`📊 Tareas para subir: ${pendingTasks.length}`)
-
-      for (const task of pendingTasks) {
-        try {
-          if (task.deleted) {
-            console.log(`🗑️ Intentando ELIMINAR en la nube: "${task.title}"`)
-            const isLocalOnly = !task.id || task.id.length > 24
-            
-            if (isLocalOnly) {
-              await localDb.tasks.delete(task.id!)
-            } else {
-              const result = await deleteTaskInDB(task.id!, userId)
-              if (result.success) {
-                await localDb.tasks.delete(task.id!)
-              }
-            }
-            continue;
-          }
-
-          const isNewTask = !task.id || task.id.length > 24
-
-          if (isNewTask) {
-            const result = await createTaskInDB(task.title, userId)
-            if (result.success && result.task) {
-              await localDb.tasks.delete(task.id!)
-              await localDb.tasks.add({
-                ...task,
-                id: result.task.id,
-                userId,
-                synced: true,
-              })
-            }
+    for (const task of pendingTasks) {
+      try {
+        if (task.deleted) {
+          const isLocalOnly = !task.id || task.id.length > 24
+          if (isLocalOnly) {
+            await localDb.tasks.delete(task.id!)
           } else {
-            const result = await updateTaskInDB(task.id!, { 
-              title: task.title, 
-              completed: task.completed 
-            }, userId)
-            if (result.success) {
-              await localDb.tasks.update(task.id!, { synced: true })
-            }
+            const result = await deleteTaskInDB(task.id!, userId)
+            if (result.success) await localDb.tasks.delete(task.id!)
           }
-        } catch (error) {
-          console.error(`❌ Fallo sincronizando "${task.title}":`, error)
+          hasChanges = true;
+          continue;
         }
+
+        const isNewTask = !task.id || task.id.length > 24
+        if (isNewTask) {
+          const result = await createTaskInDB(task.title, userId)
+          if (result.success && result.task) {
+            await localDb.tasks.delete(task.id!)
+            await localDb.tasks.add({ 
+              ...task, 
+              id: result.task.id, 
+              userId, 
+              synced: true 
+            })
+            hasChanges = true;
+          }
+        } else {
+          const result = await updateTaskInDB(task.id!, { 
+            title: task.title, 
+            completed: task.completed 
+          }, userId)
+          if (result.success) {
+            await localDb.tasks.update(task.id!, { synced: true })
+            hasChanges = true;
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Fallo sincronizando "${task.title}":`, error)
       }
     }
 
-    const runFullSync = async () => {
-      await syncTasks();
-      await downloadFromCloud();
-    };
+    if (hasChanges) {
+      console.log('🔄 [Sync] Cambios subidos. Invalidando caché...');
+      queryClient.invalidateQueries({ queryKey: ['tasks', userId] });
+    }
+  }, [status, userId, queryClient]);
 
-    window.addEventListener('online', runFullSync);
-    runFullSync();
+  useEffect(() => {
+    if (status !== 'authenticated' || !userId) return;
 
-    return () => window.removeEventListener('online', runFullSync)
-  }, [status, userId]); // El hook re-actúa si cambia la sesión
+    // Ejecutamos la sincronización al inicio y cuando volvemos a estar online
+    window.addEventListener('online', syncTasks);
+    syncTasks();
+
+    return () => window.removeEventListener('online', syncTasks)
+  }, [status, userId, syncTasks]);
+
+  return syncTasks; // Retornamos la función para uso manual
 }

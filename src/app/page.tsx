@@ -3,21 +3,117 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { localDb } from '@/lib/db'
-import { createTaskInDB, updateTaskInDB, deleteTaskInDB } from '@/lib/actions'
+import { createTaskInDB, updateTaskInDB, deleteTaskInDB, fetchTasksFromDB } from '@/lib/actions'
 import { useSync } from '@/hooks/useSync'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useSession, signOut } from 'next-auth/react'
-import { Plus, Wifi, WifiOff, CheckCircle2, Circle, Loader2, Trash2, Edit2, Check, X, LogOut, User } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Plus, Wifi, WifiOff, CheckCircle2, Circle, Loader2, Trash2, Edit2, Check, X, LogOut, User, RefreshCw } from 'lucide-react'
 
 export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const queryClient = useQueryClient() // <--- NUEVO: Para invalidar el caché
   const [title, setTitle] = useState('')
-  const [isPending, setIsPending] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
 
   const userId = (session?.user as any)?.id;
+
+  // ... useQuery y useEffect de sincronización se mantienen igual ...
+
+  // EXPLICACIÓN TUTORIAL:
+  // Las Mutaciones gestionan acciones que CAMBIAN datos (POST, PUT, DELETE).
+  // Usamos 'onSuccess' para invalidar el caché y que TanStack Query refresque los datos.
+
+  // MUTACIÓN: CREAR
+  const createMutation = useMutation({
+    mutationFn: ({ title, tempId }: { title: string, tempId: string }) => 
+      createTaskInDB(title, userId!),
+    onSuccess: async (result, variables) => {
+      if (result.success && result.task) {
+        // Evitamos duplicados: Borramos la temporal y añadimos la real
+        await localDb.tasks.delete(variables.tempId);
+        await localDb.tasks.add({
+          id: result.task.id,
+          userId: userId!,
+          title: result.task.title,
+          completed: result.task.completed,
+          createdAt: result.task.createdAt,
+          synced: true,
+        });
+        queryClient.invalidateQueries({ queryKey: ['tasks', userId] });
+      }
+    },
+    onError: (error) => {
+      // EXPLICACIÓN TUTORIAL:
+      // Si la mutación falla (ej: servidor caído), silenciamos el error.
+      // La tarea ya está segura en Dexie con synced: false.
+      // El hook useSync se encargará de subirla más tarde.
+      console.warn('📡 [Mutation] Fallo al crear en la nube, se sincronizará luego:', error);
+    }
+  });
+
+  // MUTACIÓN: ACTUALIZAR (Toggle o Editar título)
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string, updates: any }) => updateTaskInDB(id, updates, userId!),
+    onSuccess: (_, variables) => {
+      localDb.tasks.update(variables.id, { synced: true });
+      queryClient.invalidateQueries({ queryKey: ['tasks', userId] });
+    },
+    onError: (error) => {
+      console.warn('📡 [Mutation] Fallo al actualizar en la nube, se sincronizará luego:', error);
+    }
+  });
+
+  // MUTACIÓN: BORRAR
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteTaskInDB(id, userId!),
+    onSuccess: (_, id) => {
+      localDb.tasks.delete(id);
+      queryClient.invalidateQueries({ queryKey: ['tasks', userId] });
+    },
+    onError: (error) => {
+      console.warn('📡 [Mutation] Fallo al borrar en la nube, se sincronizará luego:', error);
+    }
+  });
+
+  // EXPLICACIÓN TUTORIAL:
+  // Redirección de seguridad en el cliente. Si el middleware falla (ej: offline)
+  // 'queryKey' identifica esta petición en el caché.
+  // 'queryFn' es la función que trae los datos (nuestra Server Action).
+  const { 
+    data: serverData, 
+    isLoading: isServerLoading, 
+    isFetching,
+    refetch 
+  } = useQuery({
+    queryKey: ['tasks', userId],
+    queryFn: () => fetchTasksFromDB(userId || ''),
+    enabled: !!userId, // Solo se ejecuta si hay un usuario logueado
+  });
+
+  // EXPLICACIÓN TUTORIAL:
+  // Sincronización Reactiva: Cuando TanStack Query recibe datos nuevos del servidor,
+  // aprovechamos para actualizar nuestra IndexedDB local.
+  useEffect(() => {
+    if (serverData?.success && serverData.tasks) {
+      const syncCloudToLocal = async () => {
+        for (const cloudTask of serverData.tasks) {
+          const localTask = await localDb.tasks.get(cloudTask.id);
+          // Solo actualizamos si no hay cambios locales pendientes (synced: true)
+          if (!localTask || localTask.synced !== false) {
+            await localDb.tasks.put({
+              ...cloudTask,
+              userId: userId!,
+              synced: true,
+            });
+          }
+        }
+      };
+      syncCloudToLocal();
+    }
+  }, [serverData, userId]);
 
   // EXPLICACIÓN TUTORIAL:
   // Redirección de seguridad en el cliente. Si el middleware falla (ej: offline)
@@ -29,7 +125,12 @@ export default function Home() {
   }, [status, router])
 
   // Activamos el vigilante de sincronización
-  useSync()
+  const sync = useSync()
+
+  const handleManualRefresh = async () => {
+    await sync();
+    refetch();
+  };
 
   // EXPLICACIÓN TUTORIAL:
   // Mejoramos el logout para que, si el servidor está caído, 
@@ -53,7 +154,7 @@ export default function Home() {
       .filter(task => !task.deleted && task.userId === userId)
       .toArray(),
     [userId]
-  )
+  ) || [] // <--- Fallback para que siempre sea un array y evitar errores de undefined
 
   // Mientras verifica la sesión, mostramos pantalla de carga
   if (status === 'loading') {
@@ -69,39 +170,33 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!title.trim() || isPending || !userId) return
+    if (!title.trim() || createMutation.isPending || !userId) return
 
-    setIsPending(true)
     const tempId = crypto.randomUUID()
     const now = Date.now()
 
-    try {
-      const result = await createTaskInDB(title, userId)
+    // 1. Actualización Optimista Local (Dexie)
+    // Siempre guardamos en local primero.
+    await localDb.tasks.add({
+      id: tempId,
+      userId,
+      title,
+      completed: false,
+      createdAt: now,
+      synced: false,
+    })
 
-      if (result.success && result.task) {
-        await localDb.tasks.add({
-          id: result.task.id,
-          userId,
-          title: result.task.title,
-          completed: result.task.completed,
-          createdAt: result.task.createdAt,
-          synced: true,
-        })
-      } else {
-        throw new Error()
-      }
-    } catch (error) {
-      await localDb.tasks.add({
-        id: tempId,
-        userId,
-        title,
-        completed: false,
-        createdAt: now,
-        synced: false,
-      })
-    } finally {
-      setTitle('')
-      setIsPending(false)
+    setTitle('')
+
+    // EXPLICACIÓN TUTORIAL:
+    // Evitamos el bloqueo del botón "+":
+    // Si el navegador detecta que estamos offline, NO lanzamos la mutación de TanStack Query.
+    // TanStack Query intentaría reintentar y dejaría el botón en 'loading'.
+    // En lugar de eso, dejamos que 'useSync' se encargue de subirla cuando vuelva el internet.
+    if (navigator.onLine) {
+      createMutation.mutate({ title, tempId });
+    } else {
+      console.log('📡 [Offline] Tarea guardada localmente. Se sincronizará al recuperar conexión.');
     }
   }
 
@@ -114,13 +209,8 @@ export default function Home() {
       synced: false,
     })
 
-    try {
-      const result = await updateTaskInDB(id, { completed: newStatus }, userId)
-      if (result.success) {
-        await localDb.tasks.update(id, { synced: true })
-      }
-    } catch (error) {
-      console.log('Fallo al actualizar en nube, se sincronizará luego.')
+    if (navigator.onLine) {
+      updateMutation.mutate({ id, updates: { completed: newStatus } });
     }
   }
 
@@ -144,31 +234,31 @@ export default function Home() {
     });
 
     setEditingId(null);
-
-    try {
-      const result = await updateTaskInDB(id, { title: editTitle }, userId);
-      if (result.success) {
-        await localDb.tasks.update(id, { synced: true });
-      }
-    } catch (error) {
-      console.log('Fallo edit en nube, se sincronizará luego.');
+    
+    if (navigator.onLine) {
+      updateMutation.mutate({ id, updates: { title: editTitle } });
     }
   }
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    
+    // Si la tarea solo existe en local, la borramos directo
+    const task = await localDb.tasks.get(id);
+    const isLocalOnly = !task?.id || task.id.length > 24;
+
+    if (isLocalOnly) {
+      await localDb.tasks.delete(id);
+      return;
+    }
+
     await localDb.tasks.update(id, { 
       deleted: true, 
       synced: false 
     });
 
-    try {
-      const result = await deleteTaskInDB(id, userId);
-      if (result.success) {
-        await localDb.tasks.delete(id);
-      }
-    } catch (error) {
-      console.log('📡 [Delete] Fallo en la nube, se borrará cuando vuelva el internet.');
+    if (navigator.onLine) {
+      deleteMutation.mutate(id);
     }
   }
 
@@ -194,10 +284,30 @@ export default function Home() {
           </button>
         </div>
 
-        <header className='mb-8 text-center'>
+        <header className='mb-8 text-center relative'>
           <h1 className='text-3xl font-bold text-slate-800'>PWA Tasks</h1>
           <p className='text-slate-500'>Tutorial Next.js 14 + Offline</p>
+          
+          {/* INDICADOR DE SINCRONIZACIÓN */}
+          <div className='absolute -right-2 top-0 flex items-center gap-2'>
+            <button 
+              onClick={handleManualRefresh}
+              disabled={isFetching}
+              className={`p-2 rounded-full transition-all ${isFetching ? 'text-blue-500 animate-spin' : 'text-slate-400 hover:bg-slate-100'}`}
+              title="Sincronizar ahora"
+            >
+              <RefreshCw size={20} />
+            </button>
+          </div>
         </header>
+
+        {/* ESTADO DE CARGA INICIAL DEL SERVIDOR */}
+        {isServerLoading && tasks.length === 0 && (
+          <div className="mb-6 flex items-center justify-center p-4 bg-blue-50 rounded-2xl border border-blue-100 text-blue-600 gap-3">
+            <Loader2 className="animate-spin" size={20} />
+            <span className="text-sm font-medium">Cargando tareas desde la nube...</span>
+          </div>
+        )}
 
         <form
           onSubmit={handleSubmit}
@@ -209,14 +319,14 @@ export default function Home() {
             onChange={(e) => setTitle(e.target.value)}
             placeholder='¿Qué hay que hacer?'
             className='flex-1 p-3 rounded-xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
-            disabled={isPending}
+            disabled={createMutation.isPending}
           />
           <button
             type='submit'
-            disabled={isPending || !title.trim()}
+            disabled={createMutation.isPending || !title.trim()}
             className='bg-blue-600 text-white p-3 rounded-xl shadow-lg hover:bg-blue-700 disabled:opacity-50 min-w-[50px] flex items-center justify-center'
           >
-            {isPending ? (
+            {createMutation.isPending ? (
               <Loader2 className='animate-spin' size={24} />
             ) : (
               <Plus size={24} />
