@@ -2,7 +2,6 @@
 
 import { signIn } from 'next-auth/react';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { LogIn, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import Link from 'next/link';
 
@@ -18,7 +17,6 @@ export default function SignInPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  const router = useRouter();
 
   // EXPLICACIÓN TUTORIAL:
   // Usamos el evento 'pageshow' para detectar cuando el usuario vuelve 
@@ -79,8 +77,12 @@ export default function SignInPage() {
         setError('Credenciales inválidas. Verifica tu email y contraseña.');
         setIsLoading(false);
       } else {
-        router.push('/');
-        router.refresh();
+        // EXPLICACIÓN TUTORIAL:
+        // En una PWA, después de un login exitoso, es más seguro realizar una
+        // navegación de documento completa (window.location). Esto asegura que
+        // todos los contextos (NextAuth, React Query) y el Service Worker se
+        // sincronicen con la nueva cookie de sesión inmediatamente.
+        window.location.href = '/';
       }
     } catch (err) {
       // EXPLICACIÓN TUTORIAL:
