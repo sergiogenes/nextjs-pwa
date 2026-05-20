@@ -23,7 +23,7 @@ export default async function HomePage() {
     redirect("/auth/signin");
   }
 
-  const userId = (session.user as any).id;
+  const userId = session.user.id;
   const queryClient = new QueryClient();
 
   // EXPLICACIÓN TUTORIAL:

@@ -39,6 +39,8 @@ Para asegurar una sincronización robusta y evitar duplicidad de datos o redirec
 - **Estándares Modernos (ES Modules):** Utilizar exclusivamente sintaxis `import`/`export`. No mezclar con `require`, especialmente en archivos de configuración.
 - **Componentes:** Separación clara entre Client Components (para interactividad y hooks de PWA) y Server Components (para obtención de datos inicial y SEO).
 - **Surgical Updates:** Realizar cambios mínimos y precisos en los archivos existentes.
+- **Validación con Linter (Obligatorio):** El código debe cumplir estrictamente con las reglas de ESLint configuradas. No se permiten variables no utilizadas, importaciones redundantes ni violaciones de tipado. El linter es el primer filtro de calidad antes de cualquier build o test.
+- **Validación con Tests (Obligatorio):** Todo cambio significativo en la lógica de negocio, sincronización o autenticación debe incluir un test automatizado (Playwright) que valide el comportamiento tanto en modo online como offline. No se considera terminada una implementación si no cuenta con su respectiva validación E2E para prevenir regresiones.
 - **Registro de Progreso:** Todo avance, hito o cambio significativo debe registrarse en el archivo `progress.md`.
 
 ## Estructura de Carpetas Sugerida

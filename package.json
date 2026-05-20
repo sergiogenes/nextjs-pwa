@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run lint",
     "build": "next build",
+    "postbuild": "npx playwright test",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint",
+    "test": "playwright test"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.11",

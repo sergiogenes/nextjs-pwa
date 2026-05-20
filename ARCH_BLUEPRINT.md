@@ -179,10 +179,12 @@ Al migrar esta arquitectura a un CRM:
 
 ---
 
-## 7. Flujo de Trabajo Estándar
-1.  **Usuario realiza acción:** Se guarda en Dexie inmediatamente (`synced: 0`).
-2.  **UI se actualiza:** Reactivity vía `useLiveQuery`.
-3.  **Orquestador detecta cambio:** 
-    *   ¿Hay red? Sincroniza.
-    *   ¿No hay red? Espera y hace ping a `/api/health`.
-4.  **Sincronización exitosa:** Se marca `synced: 1` y se invalida el caché de React Query para refrescar datos globales.
+## 8. Cultura de Calidad y Resiliencia (Testing & Linting)
+Para que una arquitectura Offline-First sea confiable a largo plazo, la validación automatizada es obligatoria:
+- **Linting Estricto:** Uso de ESLint para garantizar consistencia estilística y técnica. El linter previene errores comunes de JavaScript/TypeScript y asegura que la regla de "Cero Any" se cumpla en todo el proyecto.
+- **Simulación de Red:** Uso de Playwright para forzar estados `context.setOffline(true/false)` y validar que la UI reacciona correctamente.
+- **Pruebas de Regresión:** Cada fix de sincronización o sesión debe dejar un test que asegure que futuras actualizaciones no rompan la persistencia local.
+- **Integridad de Datos:** Validar que tras una secuencia de operaciones offline, el estado final en el servidor coincide exactamente con el de la base de datos local.
+
+---
+*Este documento es dinámico y debe actualizarse conforme la arquitectura evolucione.*

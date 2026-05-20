@@ -25,17 +25,34 @@ const withPWA = withPWAInit({
   runtimeCaching: [
     {
       // EXPLICACIÓN TUTORIAL:
-      // Las rutas de Auth NUNCA deben cachearse, siempre deben ir a red.
-      // Si el servidor está caído, el código de cliente manejará el error.
-      urlPattern: /\/api\/auth\/.*/,
+      // Las rutas de Auth que requieren servidor (login, logout, callback)
+      // NUNCA deben cachearse. Deben ir siempre a red por seguridad.
+      urlPattern: /\/api\/auth\/(signin|signout|callback|signup).*/,
       handler: 'NetworkOnly',
       options: {
-        cacheName: 'auth-api',
+        cacheName: 'auth-api-critical',
       }
     },
     {
+      // EXPLICACIÓN TUTORIAL:
+      // Para que la sesión persista en modo avión, cacheamos el endpoint de session.
+      // 'StaleWhileRevalidate' servirá la sesión guardada instantáneamente 
+      // mientras intenta actualizarla en segundo plano si hay red.
+      urlPattern: /\/api\/auth\/session/,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'auth-session',
+        expiration: {
+          maxEntries: 1,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 1 semana
+        },
+      },
+    },
+    {
       // Estrategia para páginas críticas: Intentar red, pero si falla o tarda, usar caché.
-      urlPattern: /\/(auth\/signin|~offline|$)/,
+      // EXPLICACIÓN TUTORIAL: Mejoramos la regex para capturar la raíz (/) 
+      // incluso si tiene parámetros de búsqueda (ej. ?_rsc=...)
+      urlPattern: /\/(auth\/signin|~offline|(\?.*)?$)/,
       handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'pages-cache',

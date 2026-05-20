@@ -26,7 +26,7 @@ export default function SignInPage() {
   // la página desde el 'Bfcache', manteniendo el estado 'isLoading' en true.
   // Esto asegura que el botón siempre se desbloquee al regresar.
   useEffect(() => {
-    const handlePageShow = (event: PageTransitionEvent) => {
+    const handlePageShow = () => {
       setIsLoading(false);
       setIsOnline(navigator.onLine);
     };

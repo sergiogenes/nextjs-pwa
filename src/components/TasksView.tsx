@@ -24,11 +24,11 @@ export default function TasksView() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
 
-  const userId = (session?.user as any)?.id;
+  const userId = session?.user?.id;
 
   // MUTACIÓN: CREAR
   const createMutation = useMutation({
-    mutationFn: ({ title, tempId }: { title: string, tempId: string }) => 
+    mutationFn: ({ title }: { title: string, tempId: string }) => 
       createTaskInDB(title, userId!),
     onSuccess: async (result, variables) => {
       if (result.success && result.task) {
@@ -51,7 +51,7 @@ export default function TasksView() {
 
   // MUTACIÓN: ACTUALIZAR
   const updateMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string, updates: any }) => updateTaskInDB(id, updates, userId!),
+    mutationFn: ({ id, updates }: { id: string, updates: Partial<{ title: string, completed: boolean }> }) => updateTaskInDB(id, updates, userId!),
     onSuccess: (_, variables) => {
       localDb.tasks.update(variables.id, { synced: true });
       queryClient.invalidateQueries({ queryKey: ['tasks', userId] });

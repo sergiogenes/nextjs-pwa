@@ -40,11 +40,12 @@
     - Se implementó un manejo robusto de redirecciones y recuperación de UI (Bfcache) mediante el evento `pageshow`.
     - Se configuraron estrategias de caché `StaleWhileRevalidate` para permitir que la Home y Login carguen incluso con el servidor apagado.
     - Se ajustó el Service Worker para manejar peticiones de datos RSC (`_rsc`) de Next.js.
-    - **Optimización de Sesión Offline:**
-        - Se configuró `SessionProvider` con `refetchOnWindowFocus: false` y `refetchWhenOffline: false` para evitar cierres de sesión accidentales sin red.
-        - Se ajustó el `middleware.ts` para ser permisivo con la sesión en micro-cortes, evitando redirecciones forzadas al login.
+    - **Optimización de Sesión Offline (Continuación):**
+            - Se configuró `SessionProvider` con `refetchOnWindowFocus: false` y `refetchWhenOffline: false` para evitar cierres de sesión accidentales sin red.
+            - Se ajustó el `middleware.ts` para ser permisivo con la sesión en micro-cortes, evitando redirecciones forzadas al login.
+            - **[NUEVO] Persistencia de Sesión en Modo Avión:** Se implementó una estrategia de caché `StaleWhileRevalidate` específica para el endpoint `/api/auth/session` en el Service Worker, permitiendo que la identidad del usuario persista incluso tras recargas en modo offline.
 
-## [2026-05-19] Consolidación de la Arquitectura PWA Estándar
+    ## [2026-05-20] Consolidación de la Arquitectura PWA Estándar
 - **Integración de TanStack Query:**
     - Configuración del `QueryClient` optimizado para modo "Offline-First" (retry: 0, refetchOnWindowFocus: false).
     - Implementación de **SSR e Hidratación** para una carga inicial instantánea (Zero-Loading-State).
@@ -59,10 +60,15 @@
 - Creación del documento `ARCH_BLUEPRINT.md` detallando la arquitectura escalable (incluyendo consideraciones para integraciones sin DB intermedia, como CRMs tipo HubSpot).
 - Se analizó el comportamiento del Logout offline (redirección a `/~offline`) y se decidió mantenerlo por seguridad.
 - **Implementación de Testing E2E con Playwright:**
-    - Configuración de Playwright para simulación de estados de red (Offline/Online).
-    - Desarrollo de un "Super-Test" de resiliencia que valida el flujo CRUD completo (Creación, Edición y Borrado) en modo offline y su posterior sincronización.
-    - Optimización de la configuración de tests para ejecución secuencial (`workers: 1`), evitando colisiones en la base de datos local (IndexedDB).
-- **Consultoría Arquitectónica para CRM (HubSpot):**
+- Configuración de Playwright para simulación de estados de red (Offline/Online).
+- Desarrollo de un "Super-Test" de resiliencia que valida el flujo CRUD completo (Creación, Edición y Borrado) en modo offline y su posterior sincronización.
+- **[NUEVO] Test de Persistencia de Sesión:** Creación de un test específico (`session-persistence.spec.ts`) para validar que la identidad del usuario se mantiene tras recargas en modo avión.
+- **[NUEVO] Automatización de Calidad:** Se modificó la estrategia de testing continuo. Se separó el Linting (`prebuild`) de las pruebas E2E. Las pruebas con Playwright ahora se ejecutan en el script `postbuild` levantando un servidor de producción (`npm run start`), garantizando que características nativas de PWA como el Service Worker y el Offline Fallback sean testeadas en el entorno correcto.
+- **[NUEVO] Refactorización de Tipado y Limpieza (Lint):** Se eliminaron todos los usos de `any` en la lógica de autenticación y sincronización, se eliminaron variables no utilizadas y se configuraron archivos de declaración de tipos (`.d.ts`) para NextAuth, garantizando un build libre de advertencias y errores.
+- **[NUEVO] Robustez PWA y Testing:** 
+    - Se optimizó `ServiceWorkerRegistration.tsx` eliminando el bloqueo del evento `load` para asegurar el registro en SPAs.
+    - Se incrementaron los timeouts de Playwright y se añadió lógica de espera explícita para el Service Worker en los tests de persistencia.
+- Optimización de la configuración de tests para ejecución secuencial (`workers: 1`), evitando colisiones en la base de datos local (IndexedDB).- **Consultoría Arquitectónica para CRM (HubSpot):**
     - Análisis de viabilidad de WebSockets vs Webhooks en HubSpot.
     - Definición de estrategias para la protección de cuotas de API (Rate Limiting) mediante el uso de Dexie como buffer local.
 

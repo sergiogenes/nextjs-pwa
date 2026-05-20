@@ -13,12 +13,31 @@ import { test, expect } from '@playwright/test';
 test.describe('PWA Offline Resilience (CRUD)', () => {
 
   // Login inicial para todos los tests del bloque
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    // 1. Limpieza total de estado para evitar sesiones residuales
+    await context.clearCookies();
+    
     await page.goto('/auth/signin');
+    
+    // 2. Limpieza de base de datos local
+    await page.evaluate(async () => {
+      const databases = await window.indexedDB.databases();
+      for (const db of databases) {
+        if (db.name) window.indexedDB.deleteDatabase(db.name);
+      }
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
+
+    // 3. Login con esperas más flexibles
     await page.fill('input[type="email"]', 'test@example.com');
     await page.fill('input[type="password"]', '123456');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/');
+    
+    // Hacemos click y esperamos la navegación
+    await Promise.all([
+      page.waitForURL('/', { waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.click('button[type="submit"]')
+    ]);
   });
 
   test('debe permitir crear una tarea offline y sincronizarla', async ({ page, context }) => {

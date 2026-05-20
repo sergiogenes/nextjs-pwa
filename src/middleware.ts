@@ -12,12 +12,12 @@ import { NextResponse } from "next/server"
  * el lado del cliente (que tiene la sesión cacheada en el JWT) maneje la UI.
  */
 export default withAuth(
-  function middleware(req) {
+  function middleware() {
     return NextResponse.next()
   },
   {
     callbacks: {
-      authorized: ({ token, req }) => {
+      authorized: ({ token }) => {
         // Si hay un token, el usuario está "autorizado" para efectos del middleware.
         // La validez real del token se maneja en el cliente/servidor con TanStack.
         return !!token

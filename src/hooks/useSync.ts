@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query'
 export function useSync() {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
-  const userId = (session?.user as any)?.id;
+  const userId = session?.user?.id;
 
   const syncTasks = useCallback(async () => {
     if (status !== 'authenticated' || !userId) return;
@@ -53,8 +53,8 @@ export function useSync() {
             hasChanges = true;
           }
         }
-      } catch (error) {
-        console.error(`❌ Fallo sincronizando "${task.title}":`, error)
+      } catch (err) {
+        console.error(`❌ Fallo sincronizando "${task.title}":`, err)
       }
     }
 
@@ -95,7 +95,7 @@ export function useSync() {
             console.log('✅ [HealthCheck] Servidor disponible. Disparando sincronización automática...');
             syncTasks();
           }
-        } catch (error) {
+        } catch {
           // El servidor sigue caído, no hacemos nada hasta el próximo ciclo
         }
       }
