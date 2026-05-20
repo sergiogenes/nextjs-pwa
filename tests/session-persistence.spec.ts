@@ -27,8 +27,26 @@ test.describe('PWA Session Resilience', () => {
     await page.fill('input[type="password"]', '123456');
     await page.click('button[type="submit"]');
     
-    // Esperar a estar en la home
-    await page.waitForURL('/');
+    // EXPLICACIÓN TUTORIAL:
+    // En CI (GitHub Actions), la base de datos empieza vacía.
+    // Si el login falla, registramos al usuario de prueba sobre la marcha.
+    try {
+      await page.waitForURL('/', { timeout: 10000 });
+    } catch (e) {
+      console.log('Usuario no encontrado en CI, registrando...');
+      await page.goto('/auth/signup');
+      await page.fill('input[placeholder="Tu nombre"]', 'PlayWrite');
+      await page.fill('input[placeholder="tu@email.com"]', 'test@example.com');
+      await page.fill('input[placeholder="••••••••"]', '123456');
+      await page.click('button[type="submit"]');
+      
+      // Volvemos a login tras registro
+      await page.waitForURL('/auth/signin?registered=true');
+      await page.fill('input[type="email"]', 'test@example.com');
+      await page.fill('input[type="password"]', '123456');
+      await page.click('button[type="submit"]');
+      await page.waitForURL('/', { timeout: 15000 });
+    }
     
     // 2. Asegurar que el Service Worker esté activo y controlando la página
     // EXPLICACIÓN TUTORIAL:
