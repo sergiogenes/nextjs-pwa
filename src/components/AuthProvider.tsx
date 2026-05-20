@@ -3,14 +3,23 @@
 import { SessionProvider } from 'next-auth/react';
 
 /**
- * Explicación Tutorial:
- * NextAuth provee un <SessionProvider> que utiliza React Context para
- * compartir la información del usuario logueado con toda la app.
+ * EXPLICACIÓN TUTORIAL (Arquitectura Estándar PWA):
+ * Configuramos el <SessionProvider> para ser resiliente al modo offline.
  * 
- * Como React Context solo funciona en el lado del cliente (Navegador),
- * tenemos que crear este componente intermediario con 'use client'
- * para poder envolver nuestra aplicación en el layout principal (que es de servidor).
+ * Por defecto, NextAuth intenta revalidar la sesión cada vez que el usuario
+ * vuelve a la pestaña (refetchOnWindowFocus). En una PWA, si estás offline,
+ * esto causa una petición fallida que puede forzar un logout innecesario.
+ * 
+ * Al desactivar estas opciones, la app confía en el token JWT guardado en 
+ * la cookie local mientras no haya red.
  */
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider 
+      refetchOnWindowFocus={false} 
+      refetchWhenOffline={false}
+    >
+      {children}
+    </SessionProvider>
+  );
 }

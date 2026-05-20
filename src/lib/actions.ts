@@ -3,13 +3,20 @@
 import dbConnect from './mongodb'
 import Task from '../models/Task'
 import User from '../models/User'
-import mongoose from 'mongoose'
 import bcrypt from 'bcryptjs' // <--- NUEVO
 
-export async function registerUser(userData: any) {
+export interface UserRegistrationData {
+  name?: string;
+  email?: string;
+  password?: string;
+}
+
+export async function registerUser(userData: UserRegistrationData) {
   try {
     await dbConnect();
     const { name, email, password } = userData;
+    if (!email || !password) return { success: false, error: 'Faltan datos' };
+    
     const existingUser = await User.findOne({ email });
     if (existingUser) return { success: false, error: 'El email ya está registrado' };
 
@@ -20,7 +27,8 @@ export async function registerUser(userData: any) {
 
     await User.create({ name, email, password: hashedPassword }); // Guardamos el hash
     return { success: true };
-  } catch (error) {
+  } catch (err) {
+    console.error('Error en registro:', err);
     return { success: false, error: 'Error interno del servidor' };
   }
 }
@@ -44,12 +52,13 @@ export async function createTaskInDB(title: string, userId: string) {
         createdAt: newTask.createdAt.getTime(),
       },
     }
-  } catch (error) {
+  } catch (err) {
+    console.error('Error al crear tarea:', err);
     return { success: false, error: 'Error al crear tarea' }
   }
 }
 
-export async function updateTaskInDB(id: string, updates: any, userId: string) {
+export async function updateTaskInDB(id: string, updates: Partial<{ title: string, completed: boolean }>, userId: string) {
   try {
     await dbConnect();
     // Filtramos por ID de tarea Y por ID de usuario por seguridad
@@ -60,7 +69,8 @@ export async function updateTaskInDB(id: string, updates: any, userId: string) {
     );
     if (!updatedTask) return { success: false, error: 'Tarea no encontrada' };
     return { success: true };
-  } catch (error) {
+  } catch (err) {
+    console.error('Error al actualizar tarea:', err);
     return { success: false, error: 'Error al actualizar' };
   }
 }
@@ -71,26 +81,35 @@ export async function deleteTaskInDB(id: string, userId: string) {
     const result = await Task.findOneAndDelete({ _id: id, userId });
     if (!result) return { success: false, error: 'No autorizado' };
     return { success: true };
-  } catch (error) {
+  } catch (err) {
+    console.error('Error al eliminar tarea:', err);
     return { success: false, error: 'Error al eliminar' };
   }
+}
+
+interface TaskDoc {
+  _id: { toString: () => string };
+  title: string;
+  completed: boolean;
+  createdAt: Date | number;
 }
 
 export async function fetchTasksFromDB(userId: string) {
   try {
     await dbConnect();
     // IMPORTANTÍSIMO: Solo traemos las tareas del usuario logueado
-    const tasks = await Task.find({ userId }).sort({ createdAt: -1 }).lean();
+    const tasks = (await Task.find({ userId }).sort({ createdAt: -1 }).lean()) as unknown as TaskDoc[];
     return {
       success: true,
-      tasks: tasks.map((t: any) => ({
+      tasks: tasks.map((t) => ({
         id: t._id.toString(),
         title: t.title,
         completed: t.completed ?? false,
         createdAt: t.createdAt instanceof Date ? t.createdAt.getTime() : Date.now(),
       }))
     };
-  } catch (error) {
+  } catch (err) {
+    console.error('Error al obtener tareas:', err);
     return { success: false, error: 'Error al obtener tareas' };
   }
 }

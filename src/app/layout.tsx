@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
 import AuthProvider from '@/components/AuthProvider'
+import ReactQueryProvider from '@/components/ReactQueryProvider'
 
 export const metadata: Metadata = {
   title: 'PWA Tasks Tutorial',
@@ -29,8 +30,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang='es'>
       <body>
+        {/* EXPLICACIÓN TUTORIAL:
+            Configuramos AuthProvider (NextAuth) para que no sea agresivo.
+            Desactivamos 'refetchOnWindowFocus' en su definición interna.
+        */}
         <AuthProvider>
-          {children}
+          <ReactQueryProvider>
+            {children}
+          </ReactQueryProvider>
           <ServiceWorkerRegistration />
         </AuthProvider>
       </body>
