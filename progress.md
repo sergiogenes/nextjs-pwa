@@ -57,9 +57,19 @@
     - Implementación de **Health Check Polling** (`/api/health`) para recuperación automática tras caídas del servidorbackend (solución al problema del Lie-Fi).
     - Eliminación de duplicidad de datos mediante el manejo coordinado de IDs temporales (Dexie) y reales (MongoDB) en mutaciones.
 - Creación del documento `ARCH_BLUEPRINT.md` detallando la arquitectura escalable (incluyendo consideraciones para integraciones sin DB intermedia, como CRMs tipo HubSpot).
-- Se analizó el comportamiento del Logout offline (redirección a `/~offline`) y se decidió mantenerlo por seguridad (imposibilidad de borrar cookies HttpOnly sin conexión).
+- Se analizó el comportamiento del Logout offline (redirección a `/~offline`) y se decidió mantenerlo por seguridad.
+- **Implementación de Testing E2E con Playwright:**
+    - Configuración de Playwright para simulación de estados de red (Offline/Online).
+    - Desarrollo de un "Super-Test" de resiliencia que valida el flujo CRUD completo (Creación, Edición y Borrado) en modo offline y su posterior sincronización.
+    - Optimización de la configuración de tests para ejecución secuencial (`workers: 1`), evitando colisiones en la base de datos local (IndexedDB).
+- **Consultoría Arquitectónica para CRM (HubSpot):**
+    - Análisis de viabilidad de WebSockets vs Webhooks en HubSpot.
+    - Definición de estrategias para la protección de cuotas de API (Rate Limiting) mediante el uso de Dexie como buffer local.
 
 ## Pendiente:
+- Mejora estética de los indicadores de sincronización (iconos de nubes, estados de carga).
+- Documentación de despliegue final.
+
 - Mejora estética de los indicadores de sincronización por cada tarea.
 - Pruebas de carga y estrés de la sincronización offline-online masiva.
 - Preparación de la documentación de despliegue final.
