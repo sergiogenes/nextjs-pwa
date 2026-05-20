@@ -43,8 +43,8 @@ async function dbConnect() {
   if (!cached!.promise) {
     const opts = {
       bufferCommands: false,
-      connectTimeoutMS: 5000, // Si en 5 segundos no conecta, que falle
-      serverSelectionTimeoutMS: 5000, // Si no encuentra el servidor rápido, que falle
+      connectTimeoutMS: 15000, // Aumentamos a 15 segundos para entornos de test
+      serverSelectionTimeoutMS: 15000, // Aumentamos a 15 segundos
     }
 
     cached!.promise = mongoose.connect(MONGODB_URI!, opts).then((mongooseInstance) => {
