@@ -105,7 +105,7 @@ const queryClient = new QueryClient({
 
 ## 5. Autenticación Resiliente (NextAuth)
 
-En una PWA, el sistema de autenticación debe ser "permisivo" con los cortes de red para no expulsar al usuario innecesariamente.
+En una PWA, el sistema de autenticación debe ser "permisivo" con los cortes de red y persistente en modo avión.
 
 ### Optimización del Provider (`src/components/AuthProvider.tsx`)
 ```typescript
@@ -117,42 +117,26 @@ En una PWA, el sistema de autenticación debe ser "permisivo" con los cortes de 
 </SessionProvider>
 ```
 
-### Middleware Permisivo (`src/middleware.ts`)
-El middleware debe permitir el acceso a la app incluso si el servidor no puede validar el token en ese instante (confiando en el JWT local).
-```typescript
-export default withAuth(
-  function middleware(req) { return NextResponse.next() },
-  {
-    callbacks: {
-      authorized: ({ token }) => !!token // Si hay token local, se permite el acceso
-    }
-  }
-)
-```
-
----
-
-## 6. Registro Robusto y Manejo de UI
-
-### Recuperación de UI (Bfcache)
-Cuando el usuario vuelve atrás en el navegador, este puede restaurar la página desde el caché (Bfcache) manteniendo estados de "Cargando". Usar el evento `pageshow` para limpiar la UI:
-```typescript
-window.addEventListener('pageshow', (event) => {
-  setIsLoading(false); // Desbloquea botones de login, etc.
-});
-```
-
-### Registro Manual del Service Worker
-Recomendado para evitar problemas de hidratación en Next.js App Router (ver `src/components/ServiceWorkerRegistration.tsx`).
+### Persistencia Offline de Sesión
+Para que el usuario no pierda su identidad al recargar en modo avión, el Service Worker debe cachear el endpoint de sesión:
+- **Endpoint:** `/api/auth/session`
+- **Estrategia:** `StaleWhileRevalidate`
+- **Resultado:** El SW sirve la última sesión válida instantáneamente mientras intenta actualizarla si hay red.
 
 ---
 
 ## 7. Estrategias del Service Worker (`next.config.mjs`)
 
-El SW debe estar configurado para ser el "paracaídas" de la aplicación.
+El SW es el "paracaídas" de la aplicación y debe configurarse para capturar tanto la UI como los datos de sesión.
 
 ```javascript
 runtimeCaching: [
+  {
+    // Persistencia de Sesión (Crítico para Offline)
+    urlPattern: /\/api\/auth\/session/,
+    handler: 'StaleWhileRevalidate',
+    options: { cacheName: 'auth-session' }
+  },
   {
     // Manejo de datos de Next.js (RSC)
     urlPattern: /\/_next\/data\/.+\/.+\.json$|.*_rsc=.*/i,
@@ -160,8 +144,8 @@ runtimeCaching: [
     options: { cacheName: 'next-data' }
   },
   {
-    // Cache de páginas críticas (Home, Login)
-    urlPattern: /\/($|auth\/signin)/,
+    // Cache de páginas críticas (Home, Login) con soporte para Query Params
+    urlPattern: /\/(auth\/signin|~offline|(\?.*)?$)/,
     handler: 'StaleWhileRevalidate',
     options: { cacheName: 'pages-cache' }
   }
@@ -170,21 +154,13 @@ runtimeCaching: [
 
 ---
 
-## 6. Consideraciones para CRM (HubSpot)
-
-Al migrar esta arquitectura a un CRM:
-1.  **Mapeo de Campos:** La base de datos local debe reflejar los esquemas de HubSpot (Contacts, Deals, etc.).
-2.  **Rate Limiting:** El orquestador de sincronización debe respetar los límites de la API de HubSpot (ej. 10 peticiones por segundo).
-3.  **Conflictos de Edición:** Usar `updatedAt` para determinar si un cambio local es más reciente que el del servidor (Last Write Wins) o avisar al usuario.
-
----
-
 ## 8. Cultura de Calidad y Resiliencia (Testing & Linting)
-Para que una arquitectura Offline-First sea confiable a largo plazo, la validación automatizada es obligatoria:
-- **Linting Estricto:** Uso de ESLint para garantizar consistencia estilística y técnica. El linter previene errores comunes de JavaScript/TypeScript y asegura que la regla de "Cero Any" se cumpla en todo el proyecto.
-- **Simulación de Red:** Uso de Playwright para forzar estados `context.setOffline(true/false)` y validar que la UI reacciona correctamente.
-- **Pruebas de Regresión:** Cada fix de sincronización o sesión debe dejar un test que asegure que futuras actualizaciones no rompan la persistencia local.
-- **Integridad de Datos:** Validar que tras una secuencia de operaciones offline, el estado final en el servidor coincide exactamente con el de la base de datos local.
+La validación automatizada debe ejecutarse sobre el entorno más fiel a la realidad (Producción):
+
+- **Flujo de Build:** `Lint (Pre-build) -> Build -> Tests E2E (Post-build)`.
+- **Validación PWA:** Los tests de resiliencia deben ejecutarse mediante `npm run start` para validar el Service Worker real.
+- **Higiene de Tests:** Es obligatorio limpiar el estado local (`IndexedDB`, `Cookies`, `LocalStorage`) antes de cada test para garantizar la reproducibilidad.
+- **Simulación de Red:** Uso de Playwright para forzar estados `context.setOffline(true/false)`.
 
 ---
 *Este documento es dinámico y debe actualizarse conforme la arquitectura evolucione.*
