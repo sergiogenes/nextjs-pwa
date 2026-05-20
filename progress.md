@@ -68,6 +68,13 @@
 - **[NUEVO] Robustez PWA y Testing:** 
     - Se optimizó `ServiceWorkerRegistration.tsx` eliminando el bloqueo del evento `load` para asegurar el registro en SPAs.
     - Se incrementaron los timeouts de Playwright y se añadió lógica de espera explícita para el Service Worker en los tests de persistencia.
+- **[NUEVO] Pipeline de CI/CD (GitHub Actions):** 
+    - Implementación de un flujo de integración continua que ejecuta Linter, Build y Tests E2E en una máquina virtual de Ubuntu.
+    - Configuración de un servicio de MongoDB real dentro del pipeline para validación de datos fidedigna.
+    - Optimización del script `postbuild` para omitir tests en Vercel, garantizando despliegues rápidos mientras se mantiene la seguridad en los Pull Requests.
+    - **[NUEVO] Enfoque en Chromium:** Se optimizó Playwright y el workflow de GitHub para ejecutar tests exclusivamente en Chromium, reduciendo el tiempo de ejecución a un tercio sin comprometer la validación principal del negocio.
+    - **[NUEVO] Robustez en CI (GitHub Actions):** Se implementó una lógica de "Auto-Registro Silencioso" en los tests de Playwright. Esto permite que los tests funcionen correctamente en entornos de CI donde la base de datos MongoDB está inicialmente vacía, registrando al usuario de prueba automáticamente si el primer intento de login falla.
+    - **[NUEVO] Aislamiento de Entorno de Test:** Se creó el archivo `.env.test` y se configuró `playwright.config.ts` para cargarlo automáticamente. Se añadió la dependencia `dotenv` para permitir la carga de variables de entorno personalizadas en los tests.
 - Optimización de la configuración de tests para ejecución secuencial (`workers: 1`), evitando colisiones en la base de datos local (IndexedDB).- **Consultoría Arquitectónica para CRM (HubSpot):**
     - Análisis de viabilidad de WebSockets vs Webhooks en HubSpot.
     - Definición de estrategias para la protección de cuotas de API (Rate Limiting) mediante el uso de Dexie como buffer local.

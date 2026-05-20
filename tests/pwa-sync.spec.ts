@@ -29,15 +29,33 @@ test.describe('PWA Offline Resilience (CRUD)', () => {
       window.sessionStorage.clear();
     });
 
-    // 3. Login con esperas más flexibles
+    // 3. Login con lógica de auto-registro para CI
+    // EXPLICACIÓN TUTORIAL:
+    // En entornos de CI (GitHub Actions), la base de datos empieza vacía.
+    // Si el login falla, registramos al usuario de prueba sobre la marcha.
     await page.fill('input[type="email"]', 'test@example.com');
     await page.fill('input[type="password"]', '123456');
-    
-    // Hacemos click y esperamos la navegación
-    await Promise.all([
-      page.waitForURL('/', { waitUntil: 'domcontentloaded', timeout: 30000 }),
-      page.click('button[type="submit"]')
-    ]);
+    await page.click('button[type="submit"]');
+
+    try {
+      // Intentamos esperar la redirección a la home
+      await page.waitForURL('/', { timeout: 10000 });
+    } catch (e) {
+      // Si falla (probablemente usuario no existe), vamos a Signup
+      console.log('Usuario no encontrado en CI, registrando...');
+      await page.goto('/auth/signup');
+      await page.fill('input[placeholder="Tu nombre"]', 'PlayWrite');
+      await page.fill('input[placeholder="tu@email.com"]', 'test@example.com');
+      await page.fill('input[placeholder="••••••••"]', '123456');
+      await page.click('button[type="submit"]');
+      
+      // Volvemos a login tras registro
+      await page.waitForURL('/auth/signin?registered=true');
+      await page.fill('input[type="email"]', 'test@example.com');
+      await page.fill('input[type="password"]', '123456');
+      await page.click('button[type="submit"]');
+      await page.waitForURL('/', { timeout: 15000 });
+    }
   });
 
   test('debe permitir crear una tarea offline y sincronizarla', async ({ page, context }) => {
