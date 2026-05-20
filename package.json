@@ -6,7 +6,7 @@
     "dev": "next dev",
     "prebuild": "npm run lint",
     "build": "next build",
-    "postbuild": "npx playwright test",
+    "postbuild": "node -e \"if (process.env.VERCEL !== '1') { require('child_process').execSync('npx playwright test', { stdio: 'inherit' }); }\"",
     "start": "next start",
     "lint": "next lint",
     "test": "playwright test"
