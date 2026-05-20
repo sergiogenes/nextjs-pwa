@@ -22,5 +22,60 @@
 - Se configuró `next-pwa` y se implementó un registro manual del Service Worker (`src/components/ServiceWorkerRegistration.tsx`), logrando la funcionalidad offline total.
 - Se ajustaron configuraciones de red (`mongodb.ts`) para permitir un fallo rápido (fail-fast) sin internet.
 
-### Pendiente para el Lunes (Post-Mortem):
-- Analizar la causa real de los problemas con el Service Worker: ¿Fue realmente la versión de Next.js (Turbopack en v16) o un problema en la forma de registrar el Service Worker inicialmente?
+### [2026-05-18] Autenticación, Seguridad y Resiliencia Avanzada
+- Se realizó un análisis post-mortem del Service Worker, confirmando la incompatibilidad de `next-pwa` con Turbopack (v15+).
+- Se optimizó el `manifest.json` y `layout.tsx` con iconos correctos y propósitos `maskable`.
+- Se implementó la sincronización bidireccional completa (subida y descarga/limpieza de datos locales).
+- Se desarrolló el CRUD offline completo (creación, edición y eliminación) con estrategias de "Soft Delete" local.
+- **Fase de Autenticación (NextAuth.js):**
+    - Se configuró NextAuth con el proveedor de credenciales y sesiones JWT.
+    - Se implementó el hasheo de contraseñas usando `bcryptjs` para máxima seguridad.
+    - Se creó un sistema de registro de usuarios (`/auth/signup`) y una página de login personalizada (`/auth/signin`).
+    - Se vincularon todas las tareas a IDs de usuario únicos en MongoDB y Dexie.
+    - Se protegió la aplicación mediante un Middleware simplificado y compatible con PWA.
+- **Resiliencia PWA Avanzada:**
+    - Se implementó una página de "Offline Fallback" (`/~offline`) para evitar errores de conexión del navegador.
+    - Se configuró el pre-cacheo forzado de la página offline mediante `additionalManifestEntries`.
+    - Se corrigió el error de build en `next-pwa` asegurando el uso de `options` en todas las reglas de `runtimeCaching`.
+    - Se implementó un manejo robusto de redirecciones y recuperación de UI (Bfcache) mediante el evento `pageshow`.
+    - Se configuraron estrategias de caché `StaleWhileRevalidate` para permitir que la Home y Login carguen incluso con el servidor apagado.
+    - Se ajustó el Service Worker para manejar peticiones de datos RSC (`_rsc`) de Next.js.
+    - **Optimización de Sesión Offline (Continuación):**
+            - Se configuró `SessionProvider` con `refetchOnWindowFocus: false` y `refetchWhenOffline: false` para evitar cierres de sesión accidentales sin red.
+            - Se ajustó el `middleware.ts` para ser permisivo con la sesión en micro-cortes, evitando redirecciones forzadas al login.
+            - **[NUEVO] Persistencia de Sesión en Modo Avión:** Se implementó una estrategia de caché `StaleWhileRevalidate` específica para el endpoint `/api/auth/session` en el Service Worker, permitiendo que la identidad del usuario persista incluso tras recargas en modo offline.
+
+    ## [2026-05-20] Consolidación de la Arquitectura PWA Estándar
+- **Integración de TanStack Query:**
+    - Configuración del `QueryClient` optimizado para modo "Offline-First" (retry: 0, refetchOnWindowFocus: false).
+    - Implementación de **SSR e Hidratación** para una carga inicial instantánea (Zero-Loading-State).
+    - Refactorización a una estructura híbrida de Server Components (`page.tsx`) y Client Components (`TasksView.tsx`).
+- **Estandarización de Arquitectura (GEMINI.md):**
+    - Se definió formalmente el patrón "Offline-First con Orquestador" para futuros proyectos.
+    - Establecimiento de Dexie como única fuente de verdad para la UI.
+- **Sincronización Autónoma y Resiliente:**
+    - Refactorización de `useSync` con protección contra ejecuciones concurrentes y sincronización secuencial.
+    - Implementación de **Health Check Polling** (`/api/health`) para recuperación automática tras caídas del servidorbackend (solución al problema del Lie-Fi).
+    - Eliminación de duplicidad de datos mediante el manejo coordinado de IDs temporales (Dexie) y reales (MongoDB) en mutaciones.
+- Creación del documento `ARCH_BLUEPRINT.md` detallando la arquitectura escalable (incluyendo consideraciones para integraciones sin DB intermedia, como CRMs tipo HubSpot).
+- Se analizó el comportamiento del Logout offline (redirección a `/~offline`) y se decidió mantenerlo por seguridad.
+- **Implementación de Testing E2E con Playwright:**
+- Configuración de Playwright para simulación de estados de red (Offline/Online).
+- Desarrollo de un "Super-Test" de resiliencia que valida el flujo CRUD completo (Creación, Edición y Borrado) en modo offline y su posterior sincronización.
+- **[NUEVO] Test de Persistencia de Sesión:** Creación de un test específico (`session-persistence.spec.ts`) para validar que la identidad del usuario se mantiene tras recargas en modo avión.
+- **[NUEVO] Automatización de Calidad:** Se modificó la estrategia de testing continuo. Se separó el Linting (`prebuild`) de las pruebas E2E. Las pruebas con Playwright ahora se ejecutan en el script `postbuild` levantando un servidor de producción (`npm run start`), garantizando que características nativas de PWA como el Service Worker y el Offline Fallback sean testeadas en el entorno correcto.
+- **[NUEVO] Refactorización de Tipado y Limpieza (Lint):** Se eliminaron todos los usos de `any` en la lógica de autenticación y sincronización, se eliminaron variables no utilizadas y se configuraron archivos de declaración de tipos (`.d.ts`) para NextAuth, garantizando un build libre de advertencias y errores.
+- **[NUEVO] Robustez PWA y Testing:** 
+    - Se optimizó `ServiceWorkerRegistration.tsx` eliminando el bloqueo del evento `load` para asegurar el registro en SPAs.
+    - Se incrementaron los timeouts de Playwright y se añadió lógica de espera explícita para el Service Worker en los tests de persistencia.
+- Optimización de la configuración de tests para ejecución secuencial (`workers: 1`), evitando colisiones en la base de datos local (IndexedDB).- **Consultoría Arquitectónica para CRM (HubSpot):**
+    - Análisis de viabilidad de WebSockets vs Webhooks en HubSpot.
+    - Definición de estrategias para la protección de cuotas de API (Rate Limiting) mediante el uso de Dexie como buffer local.
+
+## Pendiente:
+- Mejora estética de los indicadores de sincronización (iconos de nubes, estados de carga).
+- Documentación de despliegue final.
+
+- Mejora estética de los indicadores de sincronización por cada tarea.
+- Pruebas de carga y estrés de la sincronización offline-online masiva.
+- Preparación de la documentación de despliegue final.

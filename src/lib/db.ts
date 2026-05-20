@@ -12,12 +12,13 @@ import Dexie, { Table } from 'dexie';
  */
 export interface LocalTask {
   id?: string;
+  userId: string; // <--- Nuevo campo para multiusuario
   title: string;
   completed: boolean;
-  synced: boolean; 
+  synced: boolean;
+  deleted?: boolean;
   createdAt: number;
 }
-
 /**
  * Creamos la clase de nuestra base de datos extendiendo Dexie.
  * Esto nos da acceso a todos los métodos de base de datos local.

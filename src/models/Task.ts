@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, models } from 'mongoose';
+import { Schema, model, models } from 'mongoose';
 
 /**
  * Explicación Tutorial:
@@ -7,6 +7,10 @@ import mongoose, { Schema, model, models } from 'mongoose';
  * las reglas de validación de los datos que llegarán a la nube.
  */
 const TaskSchema = new Schema({
+  userId: {
+    type: String,
+    required: [true, 'El usuario es obligatorio'],
+  },
   title: {
     type: String,
     required: [true, 'El título es obligatorio'],
