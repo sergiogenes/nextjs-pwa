@@ -1,9 +1,9 @@
 # Registro de Progreso
 
 ## [2026-05-14] Configuración Inicial de Seguimiento
-- Se actualizó `GEMINI.md` para incluir la regla de registro de progreso.
+- Se actualizó `AGENTS.md` para incluir la regla de registro de progreso.
 - Se creó el archivo `progress.md` para centralizar el historial de avances del proyecto.
-- Se actualizó `GEMINI.md` para hacer obligatorias las explicaciones detalladas (enfoque tutorial) y delegar la ejecución de comandos de consola al usuario.
+- Se actualizó `AGENTS.md` para hacer obligatorias las explicaciones detalladas (enfoque tutorial) y delegar la ejecución de comandos de consola al usuario.
 - Se crearon los directorios base: `src/components`, `src/lib`, `src/models` y `src/hooks`.
 - Se limpiaron los archivos `src/app/page.tsx` y `src/app/globals.css` para eliminar el boilerplate inicial.
 - Se configuró `public/manifest.json` con los metadatos básicos de la PWA.
@@ -50,7 +50,7 @@
     - Configuración del `QueryClient` optimizado para modo "Offline-First" (retry: 0, refetchOnWindowFocus: false).
     - Implementación de **SSR e Hidratación** para una carga inicial instantánea (Zero-Loading-State).
     - Refactorización a una estructura híbrida de Server Components (`page.tsx`) y Client Components (`TasksView.tsx`).
-- **Estandarización de Arquitectura (GEMINI.md):**
+- **Estandarización de Arquitectura (AGENTS.md):**
     - Se definió formalmente el patrón "Offline-First con Orquestador" para futuros proyectos.
     - Establecimiento de Dexie como única fuente de verdad para la UI.
 - **Sincronización Autónoma y Resiliente:**
@@ -76,9 +76,16 @@
     - **[NUEVO] Robustez en CI (GitHub Actions):** Se implementó una lógica de "Auto-Registro Silencioso" en los tests de Playwright. Esto permite que los tests funcionen correctamente en entornos de CI donde la base de datos MongoDB está inicialmente vacía, registrando al usuario de prueba automáticamente si el primer intento de login falla.
     - **[NUEVO] Aislamiento de Entorno de Test:** Se creó el archivo `.env.test` y se configuró `playwright.config.ts` para cargarlo automáticamente. Se añadió la dependencia `dotenv` para permitir la carga de variables de entorno personalizadas en los tests.
     - **[NUEVO] Sincronización de Sesión Post-Login:** Se reemplazó la navegación del cliente (`router.push`) por una navegación de documento completa (`window.location.href`) en el proceso de inicio de sesión. Esto garantiza que el Service Worker y los proveedores de contexto (NextAuth, React Query) se sincronicen correctamente con la nueva cookie de sesión, evitando estados de UI vacíos tras el login.
-- Optimización de la configuración de tests para ejecución secuencial (`workers: 1`), evitando colisiones en la base de datos local (IndexedDB).- **Consultoría Arquitectónica para CRM (HubSpot):**
+- Optimización de la configuración de tests para ejecución secuencial (`workers: 1`), evitando colisiones en la base de datos local (IndexedDB).
+- **Consultoría Arquitectónica para CRM (HubSpot):**
     - Análisis de viabilidad de WebSockets vs Webhooks en HubSpot.
     - Definición de estrategias para la protección de cuotas de API (Rate Limiting) mediante el uso de Dexie como buffer local.
+
+## [2026-05-21] Migración a Antigravity CLI y Estructura Agnóstica
+- Se migró el entorno de desarrollo y reglas de la IA de Gemini CLI a Antigravity CLI.
+- Se unificaron y simplificaron las reglas generales del framework y las convenciones del tutorial PWA en un único punto de entrada: `AGENTS.md`.
+- Se eliminó el archivo de configuración redundante `GEMINI.md`.
+- Se creó el directorio `docs/plans/` para conservar copias de los planes de implementación e historial de migración en el repositorio.
 
 ## Pendiente:
 - Mejora estética de los indicadores de sincronización (iconos de nubes, estados de carga).
