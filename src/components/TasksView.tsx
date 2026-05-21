@@ -7,7 +7,7 @@ import { useSync } from '@/hooks/useSync'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useSession, signOut } from 'next-auth/react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Wifi, WifiOff, CheckCircle2, Circle, Loader2, Trash2, Edit2, Check, X, LogOut, User, RefreshCw } from 'lucide-react'
+import { Plus, CheckCircle2, Circle, Loader2, Trash2, Edit2, Check, X, LogOut, User, RefreshCw, Cloud, CloudOff, CloudUpload } from 'lucide-react'
 
 /**
  * EXPLICACIÓN TUTORIAL (Arquitectura Estándar PWA):
@@ -106,8 +106,8 @@ export default function TasksView() {
     }
   }, [serverData, userId]);
 
-  // Activamos el vigilante de sincronización
-  const sync = useSync()
+  // Activamos el vigilante de sincronización y obtenemos tareas en proceso
+  const { syncTasks: sync, syncingTaskIds } = useSync()
 
   const handleManualRefresh = async () => {
     await sync();
@@ -285,12 +285,19 @@ export default function TasksView() {
         </form>
 
         <div className='space-y-3'>
-          {tasks?.map((task) => (
-            <div
-              key={task.id}
-              onClick={() => handleToggle(task.id!, task.completed)}
-              className='bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group'
-            >
+          {tasks?.map((task) => {
+            const isSyncingInQueue = syncingTaskIds.includes(task.id!);
+            const isCreating = createMutation.isPending && createMutation.variables?.tempId === task.id;
+            const isUpdating = updateMutation.isPending && updateMutation.variables?.id === task.id;
+            const isDeleting = deleteMutation.isPending && deleteMutation.variables === task.id;
+            const isTaskSyncing = isSyncingInQueue || isCreating || isUpdating || isDeleting;
+
+            return (
+              <div
+                key={task.id}
+                onClick={() => handleToggle(task.id!, task.completed)}
+                className='bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-slate-200 transition-all duration-300'
+              >
               <div className='flex items-center gap-3 flex-1'>
                 {task.completed ? (
                   <CheckCircle2 className='text-green-500 flex-shrink-0' />
@@ -332,14 +339,6 @@ export default function TasksView() {
                   </button>
                 )}
 
-                <div title={task.synced ? 'Sincronizado' : 'Pendiente'}>
-                  {task.synced ? (
-                    <Wifi size={16} className='text-blue-400' />
-                  ) : (
-                    <WifiOff size={16} className='text-amber-500 animate-pulse' />
-                  )}
-                </div>
-
                 <button
                   onClick={(e) => handleDelete(e, task.id!)}
                   className='p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all'
@@ -347,9 +346,40 @@ export default function TasksView() {
                 >
                   <Trash2 size={18} />
                 </button>
+
+                <div className="flex items-center">
+                  {isTaskSyncing ? (
+                    <div 
+                      className="flex items-center gap-1.5 text-blue-600 bg-blue-50/80 px-2 py-0.5 rounded-full text-xs font-semibold border border-blue-100 transition-all duration-300 animate-pulse"
+                      title="Sincronizando con la nube..."
+                    >
+                      <CloudUpload size={14} className="animate-bounce" />
+                      <span className="hidden md:inline">Sincronizando</span>
+                    </div>
+                  ) : !task.synced ? (
+                    <div 
+                      className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full text-xs font-semibold border border-amber-100 transition-all duration-300"
+                      title={navigator.onLine ? "Pendiente de sincronizar" : "Guardado localmente (Offline)"}
+                    >
+                      <CloudOff size={14} className="text-amber-500" />
+                      <span className="hidden md:inline">
+                        {navigator.onLine ? "Pendiente" : "Local"}
+                      </span>
+                    </div>
+                  ) : (
+                    <div 
+                      className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full text-xs font-semibold border border-emerald-100 transition-all duration-300 hover:scale-105"
+                      title="Sincronizado con MongoDB"
+                    >
+                      <Cloud size={14} className="text-emerald-500" />
+                      <span className="hidden md:inline">Sincronizado</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+              </div>
+            );
+          })}
 
           {tasks?.length === 0 && (
             <p className='text-center text-slate-400 italic py-10'>

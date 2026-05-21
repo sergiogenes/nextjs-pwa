@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { localDb } from '@/lib/db'
 import { createTaskInDB, updateTaskInDB, deleteTaskInDB } from '@/lib/actions'
 import { useSession } from 'next-auth/react'
@@ -8,6 +8,7 @@ export function useSync() {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
   const userId = session?.user?.id;
+  const [syncingTaskIds, setSyncingTaskIds] = useState<string[]>([]);
 
   const syncTasks = useCallback(async () => {
     if (status !== 'authenticated' || !userId) return;
@@ -22,7 +23,10 @@ export function useSync() {
     let hasChanges = false;
 
     for (const task of pendingTasks) {
+      if (!task.id) continue;
       try {
+        setSyncingTaskIds((prev) => [...prev, task.id!]);
+        
         if (task.deleted) {
           const isLocalOnly = !task.id || task.id.length > 24
           if (isLocalOnly) {
@@ -55,6 +59,8 @@ export function useSync() {
         }
       } catch (err) {
         console.error(`❌ Fallo sincronizando "${task.title}":`, err)
+      } finally {
+        setSyncingTaskIds((prev) => prev.filter((id) => id !== task.id));
       }
     }
 
@@ -116,5 +122,5 @@ export function useSync() {
     }
   }, [status, userId, syncTasks]);
 
-  return syncTasks;
+  return { syncTasks, syncingTaskIds };
 }

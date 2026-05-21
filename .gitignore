@@ -41,7 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Feedback images
-/feedback-images
+/feedback_image/
 
 # Playwright
 node_modules/
@@ -50,3 +50,16 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Respaldos temporales
+*.bak
+
+# Configuración local de Antigravity CLI
+/.antigravitycli/
+
+# Documentación e implementaciones locales
+/docs/
+
+# IDEs y Editores
+/.vscode/
+/.idea/

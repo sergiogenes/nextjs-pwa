@@ -66,10 +66,10 @@ test.describe('PWA Offline Resilience (CRUD)', () => {
     await page.press('input[placeholder="¿Qué hay que hacer?"]', 'Enter');
 
     await expect(page.locator(`text=${taskTitle}`)).toBeVisible();
-    await expect(page.getByTitle('Pendiente').first()).toBeVisible();
+    await expect(page.getByTitle(/pendiente|guardado/i).first()).toBeVisible();
 
     await context.setOffline(false);
-    await expect(page.getByTitle('Sincronizado').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTitle(/sincronizado/i).first()).toBeVisible({ timeout: 15000 });
   });
 
   test('debe permitir editar una tarea offline y sincronizar el cambio', async ({ page, context }) => {
@@ -80,7 +80,7 @@ test.describe('PWA Offline Resilience (CRUD)', () => {
     
     // Esperar a que se sincronice para que tenga ID de base de datos
     const taskRow = page.locator('div.bg-white', { hasText: taskTitle });
-    await expect(taskRow.getByTitle('Sincronizado')).toBeVisible({ timeout: 10000 });
+    await expect(taskRow.getByTitle(/sincronizado/i)).toBeVisible({ timeout: 10000 });
 
     // 2. IR OFFLINE
     await context.setOffline(true);
@@ -97,11 +97,11 @@ test.describe('PWA Offline Resilience (CRUD)', () => {
 
     // Verificar UI optimista
     await expect(page.locator(`text=${newTitle}`)).toBeVisible();
-    await expect(taskRow.getByTitle('Pendiente')).toBeVisible();
+    await expect(taskRow.getByTitle(/pendiente|guardado/i)).toBeVisible();
 
     // 4. IR ONLINE
     await context.setOffline(false);
-    await expect(taskRow.getByTitle('Sincronizado')).toBeVisible({ timeout: 15000 });
+    await expect(taskRow.getByTitle(/sincronizado/i)).toBeVisible({ timeout: 15000 });
     await expect(page.locator(`text=${newTitle}`)).toBeVisible();
   });
 
@@ -112,7 +112,7 @@ test.describe('PWA Offline Resilience (CRUD)', () => {
     await page.press('input[placeholder="¿Qué hay que hacer?"]', 'Enter');
     
     const taskRow = page.locator('div.bg-white', { hasText: taskTitle });
-    await expect(taskRow.getByTitle('Sincronizado')).toBeVisible({ timeout: 10000 });
+    await expect(taskRow.getByTitle(/sincronizado/i)).toBeVisible({ timeout: 10000 });
 
     // 2. IR OFFLINE
     await context.setOffline(true);
