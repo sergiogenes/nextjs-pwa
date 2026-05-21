@@ -41,7 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Feedback images
-/feedback-images
+/feedback_image/
 
 # Playwright
 node_modules/

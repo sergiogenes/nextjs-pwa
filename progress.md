@@ -86,11 +86,16 @@
 - Se unificaron y simplificaron las reglas generales del framework y las convenciones del tutorial PWA en un único punto de entrada: `AGENTS.md`.
 - Se eliminó el archivo de configuración redundante `GEMINI.md`.
 - Se creó el directorio `docs/plans/` para conservar copias de los planes de implementación e historial de migración en el repositorio.
+- **[NUEVO] Mejora Estética de Sincronización:**
+  - Se modificó `useSync.ts` para rastrear las tareas en proceso de sincronización con el servidor mediante el array reactivo `syncingTaskIds`.
+  - Se rediseñó la UI en `TasksView.tsx` para reemplazar los iconos de red estáticos por insignias de estado (badges) basadas en nubes (`Cloud`, `CloudOff`, `CloudUpload`).
+  - Se integraron animaciones activas (`animate-pulse` y `animate-bounce`) para el estado de carga y sincronización.
+  - La visualización es responsiva: en pantallas móviles muestra únicamente el icono representativo y en pantallas medianas o superiores expande el texto descriptivo.
+- **[NUEVO] Pruebas de Carga y Estrés de Sincronización:**
+  - Se creó la suite de pruebas `tests/load-sync.spec.ts` para validar la estabilidad frente a inserciones masivas de tareas (50 tareas offline) y la resiliencia en redes inestables "Lie-Fi" (20 tareas con corte de red a mitad de sincronización).
+  - Se implementó un helper de aislamiento de base de datos y sesión por usuario único en cada test para evitar la contaminación cruzada en MongoDB.
+  - Se adaptaron las aserciones de `tests/pwa-sync.spec.ts` para admitir de forma flexible los tooltips y badges mejorados en la UI.
+  - Toda la suite (8 tests) fue ejecutada en postbuild y pasó exitosamente de forma automatizada.
 
 ## Pendiente:
-- Mejora estética de los indicadores de sincronización (iconos de nubes, estados de carga).
-- Documentación de despliegue final.
-
-- Mejora estética de los indicadores de sincronización por cada tarea.
-- Pruebas de carga y estrés de la sincronización offline-online masiva.
 - Preparación de la documentación de despliegue final.
